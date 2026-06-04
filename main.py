@@ -1,98 +1,358 @@
-#!/home/ammon/dyna-images/bin/python3
-
 from PIL import Image, ImageDraw, ImageFont
-from flask import Flask, request, send_file, render_template
+from flask import Flask, request, send_file, send_from_directory
 import requests
 import io
+import os
+import difflib
 
 app = Flask(__name__)
 
+@app.route('/')
+def home():
+    return send_from_directory('.', 'index.html')
 
+
+# ---------------
+#|Footer message|
+# ---------------
+
+def draw_footer(draw, img_width, img_height):
+    footer_font = ImageFont.truetype(
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=18
+    )
+
+    footer_text = "github.com/mrcoat2/dyna-images\nyour.server.url"
+
+    draw.text(
+        (img_width // 2, img_height - 40),
+        footer_text,
+        fill="black",
+        font=footer_font,
+        anchor="mm",
+        align="center"
+    )
+
+
+# -------------------------
+# LAN IP detection
+# -------------------------
+def is_lan(ip: str) -> bool:
+    return (
+        ip.startswith("10.") or
+        ip.startswith("192.168.") or
+        (ip.startswith("172.") and 16 <= int(ip.split(".")[1]) <= 31)
+    )
+
+
+# -------------------------
+# Normalize ISP name
+# -------------------------
+def normalize_isp(name: str) -> str:
+    if not name:
+        return ""
+    return (
+        name.lower()
+            .replace(" ", "")
+            .replace("-", "")
+            .replace("_", "")
+            .replace(",", "")
+            .replace(".", "")
+    )
+
+
+# -------------------------
+# Extract ISP brand name (universal)
+# -------------------------
+def extract_brand(name: str) -> str:
+    if not name:
+        return ""
+
+    # Remove ASN prefix
+    if name.upper().startswith("AS") and " " in name:
+        name = name.split(" ", 1)[1]
+
+    clean = (
+        name.lower()
+            .replace(",", "")
+            .replace(".", "")
+            .replace("inc", "")
+            .replace("llc", "")
+            .replace("corp", "")
+            .replace("corporation", "")
+            .replace("communications", "")
+            .replace("communication", "")
+            .replace("services", "")
+            .replace("service", "")
+            .replace("solutions", "")
+            .replace("networks", "")
+            .replace("network", "")
+            .replace("enterprises", "")
+            .replace("enterprise", "")
+            .replace("holdings", "")
+            .replace("holding", "")
+            .replace("company", "")
+            .replace("co", "")
+            .replace("group", "")
+            .replace("broadband", "")
+            .replace("cable", "")
+            .replace("telecom", "")
+            .replace("usa", "")
+            .replace("internet", "")
+            .replace("llp", "")
+            .replace("plc", "")
+            .replace("gmbh", "")
+            .replace("sa", "")
+            .replace("spa", "")
+    )
+
+    clean = " ".join(clean.split())
+    brand = clean.split(" ")[0]
+    return normalize_isp(brand)
+
+
+# -------------------------
+# Dual‑mode ISP resolver (brand → fuzzy → fallback)
+# -------------------------
+def resolve_isp_logo(org_name: str) -> str:
+    if not org_name:
+        return "unknown.png"
+
+    # Step 1: brand extraction
+    brand = extract_brand(org_name)
+
+    # Load all logo filenames
+    files = os.listdir("isp_logo")
+    logos = [f.replace(".png", "").lower() for f in files if f.endswith(".png")]
+
+    # Step 2: exact match
+    if brand in logos:
+        return brand + ".png"
+
+    # Step 3: fuzzy match
+    match = difflib.get_close_matches(brand, logos, n=1, cutoff=0.3)
+    if match:
+        return match[0] + ".png"
+
+    # Step 4: fallback
+    return "unknown.png"
+
+
+# -------------------------
+# /phone endpoint
+# -------------------------
 @app.route('/phone')
 def phone():
-    user_agent = request.headers.get('User-Agent')
+    user_agent = request.headers.get('User-Agent', '')
     print(user_agent)
 
-    color = (255,255,255)
+    color = (255, 255, 255)
     paste_image = Image.open('unknown.png')
 
-    big_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=40)
-    small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=20)
-    text = "You're probably on windows or something idk"
-    type = request.args.get('query')
-    if "Linux" in user_agent:
+    big_font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    big_font = ImageFont.truetype(big_font_path, size=40)
+    small_font = ImageFont.truetype(big_font_path, size=20)
+
+    text = "Your OS can't be detected \nBut it's probably Windows"
+
+    # Auto‑scale default text to fit both width and height
+    font_size = 40
+    max_width = 540 * 0.9
+    max_height = 200  # vertical space for text block
+    
+    while True:
+        test_font = ImageFont.truetype(big_font_path, size=font_size)
+        text_width = test_font.getlength(text)
+        text_height = test_font.getbbox(text)[3] - test_font.getbbox(text)[1]
+        if (text_width <= max_width and text_height <= max_height) or font_size <= 20:
+            break
+        font_size -= 2
+    
+    device_font = ImageFont.truetype(big_font_path, size=font_size)
+
+
+    type_override = request.args.get('query')
+    header_text = ""
+    device_font = big_font  # default
+
+    # Linux
+    if "Linux" in user_agent or type_override == "linux":
+        header_text = "Elite choice."
         text = "You are the goodest boy \nfor using linux"
         paste_image = Image.open('linux.jpg')
-    
-    if "Android" in user_agent or type=="android":
-        # android settings
+
+    # Android
+    if "Android" in user_agent or type_override == "android":
+        header_text = "You're using:"
         color = (61, 220, 132)
-        try:
-            text = "You have a: \n" + user_agent.split("; M:")[1].split(";")[0]
-        except IndexError:
-            text = "You have an android"
-        
         paste_image = Image.open('android.jpg')
-        
-    if "Darwin" in user_agent or "iPhone" in user_agent or type=="iphone":
-        # apples settings
+
+        try:
+            device_name = user_agent.split("; M:")[1].split(";")[0]
+        except:
+            device_name = "non-recognized android device"
+
+        font_size = 40
+        while True:
+            test_font = ImageFont.truetype(big_font_path, size=font_size)
+            if test_font.getlength(device_name) <= 540 * 0.9 or font_size <= 20:
+                break
+            font_size -= 2
+
+        device_font = ImageFont.truetype(big_font_path, size=font_size)
+        text = f"You have a:\n{device_name}"
+
+    # iPhone
+    if "iPhone" in user_agent or "Darwin" in user_agent or type_override in ("iphone", "darwin"):
+        header_text = "Bold move."
         color = (0, 122, 255)
-        text = "You have an iphone, \nI'm sorry that you do :("
-        
         paste_image = Image.open('apple.png')
 
-    bottom_text = "This image changes depending on your device, \ntry it with a friend and see"
+        courage_text = "But where's your courage™?"
+
+        font_size = 40
+        while True:
+            test_font = ImageFont.truetype(big_font_path, size=font_size)
+            if test_font.getlength(courage_text) <= 540 * 0.9 or font_size <= 20:
+                break
+            font_size -= 2
+
+        device_font = ImageFont.truetype(big_font_path, size=font_size)
+        text = courage_text
+
+    bottom_text = "This image changes depending on your device,\ntry it with a friend and see"
+
     img = Image.new("RGB", (540, 1218), color)
     draw = ImageDraw.Draw(img)
 
-    # Draw shapes
+    draw.text((img.width // 2, 120), header_text, fill="black", font=big_font, anchor="mm")
+
     paste_image = paste_image.convert('RGBA')
     img.paste(paste_image, (70, 200), paste_image)
 
-    # Add text
-    draw.text((0, 700), text, fill="black", font=big_font)
-    draw.text((0, 1000), bottom_text, fill="black", font=small_font)
+    draw.multiline_text(
+        (img.width // 2, 700),
+        text,
+        fill="black",
+        font=device_font,
+        anchor="mm",
+        align="center"
+    )
+
+    draw.text(
+        (img.width // 2, 1000),
+        bottom_text,
+        fill="black",
+        font=small_font,
+        anchor="mm",
+        align="center"
+    )
+
+    draw_footer(draw, img.width, img.height)
 
     img_io = io.BytesIO()
     img.save(img_io, 'PNG')
-    img_io.seek(0) # Reset buffer to the beginning
-
+    img_io.seek(0)
     return send_file(img_io, mimetype='image/png')
 
+
+# -------------------------
+# /ip endpoint
+# -------------------------
 @app.route('/ip')
 def ip():
-    ip = request.headers.get("X-Forwarded-For")
-    print(ip)
+    ip_addr = (
+        request.headers.get("CF-Connecting-IP")
+        or request.headers.get("X-Forwarded-For")
+        or request.remote_addr
+    )
 
-    color = (255,255,255)
-    
-
-    # big_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=40)
+    color = (255, 255, 255)
     small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=30)
-    info = requests.get("https://ipinfo.io/"+ip+"/json").json()
-    print(info)
-    text = ""
-    text += info['ip'] + '\n'
-    text += info['city'] +'\n'
-    text += info['region'] +'\n'
-    text += info['country'] +'\n'
-    text += info['loc'] +'\n'
-    text += info['org'] +'\n'
+    header_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=28)
+
+    if is_lan(ip_addr):
+        info = {}
+        text = f"IP: {ip_addr}\nType: LAN IP\n"
+    else:
+        info = requests.get(f"https://ipinfo.io/{ip_addr}/json").json()
+        loc = info.get("loc", "0,0")
+        text = (
+            f"IP: {info.get('ip', 'Unknown')}\n"
+            f"City: {info.get('city', 'Unknown')}\n"
+            f"Region: {info.get('region', 'Unknown')}\n"
+            f"Country: {info.get('country', 'Unknown')}\n"
+            f"Location: {loc}\n"
+        )
 
     img = Image.new("RGB", (540, 1218), color)
     draw = ImageDraw.Draw(img)
-    draw.text((0, 400), text, fill="black", font=small_font)
+
+    draw.multiline_text(
+        (img.width // 2, 250),
+        text,
+        fill="black",
+        font=small_font,
+        anchor="mm",
+        align="center"
+    )
+
+    # LAN override
+    if is_lan(ip_addr):
+        logo_file = "lan.png"
+    else:
+        org = info.get("org", "")
+        logo_file = resolve_isp_logo(org)
+
+    logo_path = f"isp_logo/{logo_file}"
+
+    draw.text(
+        (img.width // 2, 600),
+        "Connection provided by",
+        font=header_font,
+        fill="black",
+        anchor="mm"
+    )
+
+    try:
+        logo = Image.open(logo_path).convert("RGBA")
+        max_logo_width = int(img.width * 0.6)
+        scale = max_logo_width / logo.width
+        new_size = (int(logo.width * scale), int(logo.height * scale))
+        logo = logo.resize(new_size, Image.LANCZOS)
+
+        logo_x = (img.width - logo.width) // 2
+        logo_y = 650
+        img.paste(logo, (logo_x, logo_y), logo)
+    except Exception as e:
+        print("LOGO ERROR:", e)
+
+    draw.text(
+        (img.width // 2, 1100),
+        "If this seems incorrect:\ntry refreshing or\nclearing your cache",
+        font=header_font,
+        fill="black",
+        anchor="mm",
+        align="center"
+    )
+
+    draw_footer(draw, img.width, img.height)
+
     img_io = io.BytesIO()
     img.save(img_io, 'PNG')
-    img_io.seek(0) # Reset buffer to the beginning
-
+    img_io.seek(0)
     return send_file(img_io, mimetype='image/png')
 
-@app.route('/spotify')
-def spotify():
-    path = "spotify.html"
-    return render_template('spotify.html')
+
+# -------------------------
+# ISP logo static route
+# -------------------------
+@app.route('/isp_logo/<path:filename>')
+def isp_logo(filename):
+    return send_from_directory('isp_logo', filename)
 
 
+# -------------------------
+# Run server
+# -------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=False)
