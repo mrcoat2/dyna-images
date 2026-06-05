@@ -13,3 +13,5 @@ Changed some default messages and added a footer text. github.com/hudker
 Removed the #! at the start of main.py. You might wanna add your own.
 
 Added logging that saves every request with a timestamp to access.log and removed *.log from .gitignore
+
+Made index.html look sick by adding more code
