@@ -1,15 +1,25 @@
+#!/home/hudboi/containers/caddy/site/dyna/dyna-images/venv/python3
+
 from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, request, send_file, send_from_directory
 import requests
 import io
 import os
 import difflib
+import datetime   # >>> LOGGING <<<
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return send_from_directory('.', 'index.html')
+
+
+# >>> LOGGING <<<
+def log_request(info: str):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open("access.log", "a") as f:
+        f.write(f"[{timestamp}] {info}\n")
 
 
 # ---------------
@@ -67,7 +77,6 @@ def extract_brand(name: str) -> str:
     if not name:
         return ""
 
-    # Remove ASN prefix
     if name.upper().startswith("AS") and " " in name:
         name = name.split(" ", 1)[1]
 
@@ -111,29 +120,24 @@ def extract_brand(name: str) -> str:
 
 
 # -------------------------
-# Dual‑mode ISP resolver (brand → fuzzy → fallback)
+# Dual‑mode ISP resolver
 # -------------------------
 def resolve_isp_logo(org_name: str) -> str:
     if not org_name:
         return "unknown.png"
 
-    # Step 1: brand extraction
     brand = extract_brand(org_name)
 
-    # Load all logo filenames
     files = os.listdir("isp_logo")
     logos = [f.replace(".png", "").lower() for f in files if f.endswith(".png")]
 
-    # Step 2: exact match
     if brand in logos:
         return brand + ".png"
 
-    # Step 3: fuzzy match
     match = difflib.get_close_matches(brand, logos, n=1, cutoff=0.3)
     if match:
         return match[0] + ".png"
 
-    # Step 4: fallback
     return "unknown.png"
 
 
@@ -143,7 +147,14 @@ def resolve_isp_logo(org_name: str) -> str:
 @app.route('/phone')
 def phone():
     user_agent = request.headers.get('User-Agent', '')
-    print(user_agent)
+    ip_addr = (
+        request.headers.get("CF-Connecting-IP")
+        or request.headers.get("X-Forwarded-For")
+        or request.remote_addr
+    )
+
+    # >>> LOGGING <<<
+    log_request(f"PHONE  IP={ip_addr}  UA='{user_agent}'")
 
     color = (255, 255, 255)
     paste_image = Image.open('unknown.png')
@@ -154,11 +165,10 @@ def phone():
 
     text = "Your OS can't be detected \nBut it's probably Windows"
 
-    # Auto‑scale default text to fit both width and height
     font_size = 40
     max_width = 540 * 0.9
-    max_height = 200  # vertical space for text block
-    
+    max_height = 200
+
     while True:
         test_font = ImageFont.truetype(big_font_path, size=font_size)
         text_width = test_font.getlength(text)
@@ -166,21 +176,18 @@ def phone():
         if (text_width <= max_width and text_height <= max_height) or font_size <= 20:
             break
         font_size -= 2
-    
-    device_font = ImageFont.truetype(big_font_path, size=font_size)
 
+    device_font = ImageFont.truetype(big_font_path, size=font_size)
 
     type_override = request.args.get('query')
     header_text = ""
-    device_font = big_font  # default
+    device_font = big_font
 
-    # Linux
     if "Linux" in user_agent or type_override == "linux":
         header_text = "Elite choice."
         text = "You are the goodest boy \nfor using linux"
         paste_image = Image.open('linux.jpg')
 
-    # Android
     if "Android" in user_agent or type_override == "android":
         header_text = "You're using:"
         color = (61, 220, 132)
@@ -201,7 +208,6 @@ def phone():
         device_font = ImageFont.truetype(big_font_path, size=font_size)
         text = f"You have a:\n{device_name}"
 
-    # iPhone
     if "iPhone" in user_agent or "Darwin" in user_agent or type_override in ("iphone", "darwin"):
         header_text = "Bold move."
         color = (0, 122, 255)
@@ -266,6 +272,9 @@ def ip():
         or request.remote_addr
     )
 
+    # >>> LOGGING <<<
+    log_request(f"IPLOOKUP  IP={ip_addr}")
+
     color = (255, 255, 255)
     small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=30)
     header_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=28)
@@ -284,6 +293,11 @@ def ip():
             f"Location: {loc}\n"
         )
 
+        # >>> LOGGING <<<
+        log_request(
+            f"IPLOOKUP  IP={ip_addr}  City={info.get('city')}  Region={info.get('region')}  Country={info.get('country')}"
+        )
+
     img = Image.new("RGB", (540, 1218), color)
     draw = ImageDraw.Draw(img)
 
@@ -296,7 +310,6 @@ def ip():
         align="center"
     )
 
-    # LAN override
     if is_lan(ip_addr):
         logo_file = "lan.png"
     else:
@@ -343,16 +356,10 @@ def ip():
     return send_file(img_io, mimetype='image/png')
 
 
-# -------------------------
-# ISP logo static route
-# -------------------------
 @app.route('/isp_logo/<path:filename>')
 def isp_logo(filename):
     return send_from_directory('isp_logo', filename)
 
 
-# -------------------------
-# Run server
-# -------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=False)
