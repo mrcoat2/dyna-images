@@ -1,7 +1,12 @@
 #!/home/hudboi/containers/caddy/site/dyna/dyna-images/venv/python3
 
 from PIL import Image, ImageDraw, ImageFont
+<<<<<<< HEAD
 from flask import Flask, request, send_file, send_from_directory
+=======
+from flask import Flask, request, send_file, send_from_directory, render_template
+import json
+>>>>>>> e987ab2 (Minor changes)
 import requests
 import io
 import os
@@ -277,6 +282,7 @@ def ip():
 
     color = (255, 255, 255)
     small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=30)
+<<<<<<< HEAD
     header_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=28)
 
     if is_lan(ip_addr):
@@ -350,6 +356,27 @@ def ip():
 
     draw_footer(draw, img.width, img.height)
 
+=======
+    smaller_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=10)
+    info = requests.get("https://ipinfo.io/"+ip+"/json").json()
+    print(info)
+    text = ""
+    text += info['ip'] + '\n'
+    text += info['city'] +'\n'
+    text += info['region'] +'\n'
+    text += info['country'] +'\n'
+    text += info['loc'] +'\n'
+    text += info['org'] +'\n'
+    #headers = json.dumps(dict(request.headers))
+
+    #for key, value in request.headers.items():
+    #    text += f"{key}: {value}\n"
+
+    img = Image.new("RGB", (540, 1218), color)
+    draw = ImageDraw.Draw(img)
+    draw.text((0, 400), text, fill="black", font=small_font)
+    #draw.text((0, 1000), headers, fill="black", font=smaller_font)
+>>>>>>> e987ab2 (Minor changes)
     img_io = io.BytesIO()
     img.save(img_io, 'PNG')
     img_io.seek(0)
