@@ -1,6 +1,6 @@
 # dyna-images
 Generates images on the fly based on what you need
-github.com/mrcoat2
+
 
 Updates:
 Uploaded the main server. github.com/mrcoat2
