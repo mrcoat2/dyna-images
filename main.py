@@ -1,5 +1,3 @@
-#!/home/hudboi/containers/caddy/site/dyna/dyna-images/venv/python3
-
 from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, request, send_file, send_from_directory, render_template
 import json

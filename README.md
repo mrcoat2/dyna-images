@@ -1,6 +1,6 @@
 # dyna-images
 Generates images on the fly based on what you need
-
+Mostly used for exploiting how groupme lets you use the api to set your photo_urls to anything you want
 
 Updates:
 Uploaded the main server. github.com/mrcoat2
