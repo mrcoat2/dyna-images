@@ -22,7 +22,7 @@ def log_request(info: str):
 
     with open("access.log", "a") as f:
         # Start a new block if >2 seconds since last log
-        if now - last_log_time > 2:
+        if now - last_log_time > 4:
             f.write("------------------------------------------------------------\n")
 
         f.write(f"[{timestamp}] {info}\n")
