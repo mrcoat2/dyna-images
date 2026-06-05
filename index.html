@@ -1,8 +1,99 @@
-<html lang="eng">
- 	<body>
-		<center>
-			<h1>Dynamic Images</h1>
-			<h2><a href="https://github.com/mrcoat2/dyna-images">github</a>
-		</center>
-	</body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>dyna-images</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #ff9fd6, #a8c0ff);
+        font-family: "Inter", sans-serif;
+        color: #222;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        min-height: 100vh;
+    }
+
+    h1 {
+        margin-top: 80px;
+        font-size: 3.2rem;
+        font-weight: 900;
+        letter-spacing: -1px;
+        color: #fff;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    p {
+        font-size: 1.2rem;
+        max-width: 600px;
+        margin-top: 10px;
+        color: #fdfdfd;
+        opacity: 0.9;
+    }
+
+    .card {
+        margin-top: 40px;
+        background: rgba(255,255,255,0.25);
+        backdrop-filter: blur(12px);
+        padding: 25px 35px;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        max-width: 500px;
+        animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+    }
+
+    .end {
+        margin-top: auto;
+        padding: 20px;
+        font-size: 0.9rem;
+        opacity: 0.7;
+    }
+
+    a {
+        color: #fff;
+        font-weight: bold;
+        text-decoration: none;
+        border-bottom: 1px solid rgba(255,255,255,0.5);
+    }
+
+    a:hover {
+        opacity: 0.7;
+    }
+</style>
+</head>
+<body>
+
+<h1>✨ dyna‑images ✨</h1>
+<p>didn't think you'd visit this page…  
+but since you’re here, here's a little demo</p>
+
+<div class="card">
+    <p><strong>/phone</strong> → tells you what device you’re using (and judges you)</p>
+    <p><strong>/ip</strong> → exposes your ISP in 4K</p>
+    <p><strong>/isp_logo/&lt;file&gt;</strong> → corporate logos but tiny</p>
+    <p style="margin-top:20px; font-size:0.95rem; opacity:0.8;">
+        this site is powered by ✨ questionable decisions ✨
+    </p>
+</div>
+
+<div class="end">
+    <p>github.com/mrcoat2/dyna-images • <span id="domain"></span></p>
+</div>
+
+<script>
+    // Auto-fill domain
+    document.getElementById("domain").textContent = window.location.host;
+</script>
+
+</body>
 </html>
