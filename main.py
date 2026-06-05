@@ -5,32 +5,45 @@ import requests
 import io
 import os
 import difflib
-import datetime   # >>> LOGGING <<<
+import datetime
+import time   # for grouping
 
 app = Flask(__name__)
+
+# -------------------------
+# Grouped logging (2 seconds)
+# -------------------------
+last_log_time = 0
+
+def log_request(info: str):
+    global last_log_time
+    now = time.time()
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with open("access.log", "a") as f:
+        # Start a new block if >2 seconds since last log
+        if now - last_log_time > 2:
+            f.write("------------------------------------------------------------\n")
+
+        f.write(f"[{timestamp}] {info}\n")
+
+    last_log_time = now
+
 
 @app.route('/')
 def home():
     return send_from_directory('.', 'index.html')
 
 
-# >>> LOGGING <<<
-def log_request(info: str):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open("access.log", "a") as f:
-        f.write(f"[{timestamp}] {info}\n")
-
-
 # ---------------
-#|Footer message|
+# Footer message
 # ---------------
-
 def draw_footer(draw, img_width, img_height):
     footer_font = ImageFont.truetype(
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=18
     )
 
-    footer_text = "github.com/mrcoat2/dyna-images\nyour.server.url"
+    footer_text = "github.com/mrcoat2/dyna-images\nenter.your.server.url.here"
 
     draw.text(
         (img_width // 2, img_height - 40),
@@ -70,7 +83,7 @@ def normalize_isp(name: str) -> str:
 
 
 # -------------------------
-# Extract ISP brand name (universal)
+# Extract ISP brand name
 # -------------------------
 def extract_brand(name: str) -> str:
     if not name:
@@ -119,7 +132,7 @@ def extract_brand(name: str) -> str:
 
 
 # -------------------------
-# Dual‑mode ISP resolver
+# ISP logo resolver
 # -------------------------
 def resolve_isp_logo(org_name: str) -> str:
     if not org_name:
@@ -152,8 +165,14 @@ def phone():
         or request.remote_addr
     )
 
-    # >>> LOGGING <<<
-    log_request(f"PHONE  IP={ip_addr}  UA='{user_agent}'")
+    # ISP lookup for phone
+    try:
+        info = requests.get(f"https://ipinfo.io/{ip_addr}/json").json()
+        isp = info.get("org", "Unknown")
+    except:
+        isp = "Unknown"
+
+    log_request(f"PHONE  IP={ip_addr}  ISP='{isp}'  UA='{user_agent}'")
 
     color = (255, 255, 255)
     paste_image = Image.open('unknown.png')
@@ -271,9 +290,6 @@ def ip():
         or request.remote_addr
     )
 
-    # >>> LOGGING <<<
-    log_request(f"IPLOOKUP  IP={ip_addr}")
-
     color = (255, 255, 255)
     header_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=28)
     small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=30)
@@ -281,6 +297,9 @@ def ip():
     if is_lan(ip_addr):
         info = {}
         text = f"IP: {ip_addr}\nType: LAN IP\n"
+
+        log_request(f"IPLOOKUP  IP={ip_addr}  ISP='LAN'")
+
     else:
         info = requests.get(f"https://ipinfo.io/{ip_addr}/json").json()
         loc = info.get("loc", "0,0")
@@ -292,9 +311,9 @@ def ip():
             f"Location: {loc}\n"
         )
 
-        # >>> LOGGING <<<
         log_request(
-            f"IPLOOKUP  IP={ip_addr}  City={info.get('city')}  Region={info.get('region')}  Country={info.get('country')}"
+            f"IPLOOKUP  IP={ip_addr}  ISP='{info.get('org','Unknown')}'  "
+            f"City={info.get('city')}  Region={info.get('region')}  Country={info.get('country')}"
         )
 
     img = Image.new("RGB", (540, 1218), color)
